@@ -16,39 +16,35 @@ The next step is to build the SAMD21DemoDeployment application's code. Build fro
 fprime-util build
 ```
 
-## Running the application and F' GDS
+## Flashing the ATSAMD21J17D
 
-The following command will spin up the F' GDS. Examples are available for UART, TcpServer, and TcpClient:
-
-### UART
+The deployment has no bootloader: it starts at address 0 and is flashed over SWD with a CMSIS-DAP debug probe (Atmel-ICE, EDBG). It assumes a 32.768 kHz crystal on PA00/PA01 (see `lib/fprime-arduino/cmake/toolchain/ATSAMD21J17D.cmake`). `arduino-cli upload` flashes it with edbg, which the Fab SAM core installs. From the project root:
 
 ```sh
-fprime-gds -n --dictionary ./build-artifacts/<build name>/SAMD21Demo_SAMD21DemoDeployment/dict/SAMD21DemoDeploymentTopologyDictionary.json --communication-selection uart --uart-device /dev/ttyACM0 --uart-baud 115200
+arduino-cli upload -b "Fab_SAM_Arduino:samd:x21j:cpu=samd21j17a,bootloader=0kb,clock=crystal_32k,usb=none,serial=three_uart" -i ./build-artifacts/ATSAMD21J17D/SAMD21Demo_SAMD21DemoDeployment/bin/SAMD21Demo_SAMD21DemoDeployment.elf.bin
+```
+
+This hasn't been tried on hardware. edbg identifies the chip by its device ID, so it may not recognize the J17D.
+
+Pins follow the Fab SAM core's Generic x21J board: the LED is on PB02, console output (`Fw::Logger`) is on Serial3 (SERCOM4, TX on PB08, RX on PB09), and the Space Packet link is on Serial2 (SERCOM0, TX on PA06, RX on PA07).
+
+## Running the application and F' GDS
+
+The Space Packet link on Serial2 (F' GDS on the bench, another subsystem in flight) carries CCSDS Space Packets, each starting with a 2-byte sync word (0xC1F5) and ending in a 2-byte CRC (see `SAMD21Demo/Components/ComSpacePacket`), with no TC/TM transfer frames. The sync word (`ComCfg.SpacePacketSyncWord`, 0 for none), the CRC (`ComCfg.SpacePacketCrc`) and the APIDs (`ComCfg.Apid`) are set in `config/ComCfg.fpp`. F' GDS reads this format through the framing plugin in `gds/space_packet_crc.py`, which takes all three from the dictionary. From the project root:
+
+```sh
+export PYTHONPATH="$PWD/gds"
+export FPRIME_GDS_EXTRA_PLUGINS="space_packet_crc:SpacePacketCrcFramerDeframer"
+fprime-gds -n --dictionary ./build-artifacts/ATSAMD21J17D/SAMD21Demo_SAMD21DemoDeployment/dict/SAMD21DemoDeploymentTopologyDictionary.json --framing-selection space-packet-crc --communication-selection uart --uart-device /dev/ttyACM0 --uart-baud 115200
 ```
 
 > [!NOTE]
-> Change `<build name>` to the build of your deployment (i.e. `teensy41`, `featherM0`, etc.).
->
-> `/dev/ttyACM0` may vary for your system/device. It may also be `/dev/ttyUSB0`. For MacOS, it will be along the lines of `/dev/tty.usbmodem12345`. Change accordingly.
+> `/dev/ttyACM0` should be the serial adapter on Serial2. It may vary for your system/device. It may also be `/dev/ttyUSB0`. For MacOS, it will be along the lines of `/dev/tty.usbmodem12345`. Change accordingly.
 >
 > To view the list of your connected devices, run: `ls /dev/tty*`.
 
-### TcpServer
+All telemetry is sent once per second via packetized telemetry packets, defined in `Top/SAMD21DemoPackets.fppi`. There are no events: command results show up in the `cmdDisp.CommandsDispatched` and `cmdDisp.CommandErrors` channels.
 
-```sh
-fprime-gds -n --dictionary ./build-artifacts/<build name>/SAMD21Demo_SAMD21DemoDeployment/dict/SAMD21DemoDeploymentTopologyDictionary.json --ip-client --ip-address <device-ip-address>
-```
+The LED blinks once a second. `lifeLed.LED_PERIOD_PRM_SET` changes its period (in 10 Hz ticks, at least 1) until the next reset. Parameters have no storage yet, so `lifeLed.LED_PERIOD_PRM_SAVE` fails.
 
-> [!NOTE]
-> Change `<build name>` to the build of your deployment (i.e. `teensy41`, `featherM0`, etc.).
->
-> Change `<device-ip-address>` to the IP address of your board. Your machine must be in the same network as the board.
-
-### TcpClient
-
-```sh
-fprime-gds -n --dictionary ./build-artifacts/<build name>/SAMD21Demo_SAMD21DemoDeployment/dict/SAMD21DemoDeploymentTopologyDictionary.json
-```
-
-> [!NOTE]
-> Change `<build name>` to the build of your deployment (i.e. `teensy41`, `featherM0`, etc.).
+See the [project README](../../README.md) for what the deployment does and how each component works.

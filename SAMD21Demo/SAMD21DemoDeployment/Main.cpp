@@ -13,6 +13,10 @@
 // Used for logging
 #include <Arduino/Os/Console.hpp>
 
+// Stack space for the core's linker script to reserve at the top of RAM, so a link that leaves less than this for the
+// stack fails. The script counts every .stack section; nobits keeps it out of the image. setup() refers to it so the
+// linker doesn't discard it.
+static U8 s_stackReserve[2048] __attribute__((section(".stack,\"aw\",%nobits@")));
 
 /**
  * \brief setup the program
@@ -21,16 +25,18 @@
  * 
  */
 void setup() {
+    asm volatile("" : : "r"(s_stackReserve));
+
     // Initialize OSAL
     Os::init();
 
-    // Setup Serial and Logging
-    Serial.begin(115200);
-    static_cast<Os::Arduino::StreamConsoleHandle*>(Os::Console::getSingleton().getHandle())->setStreamHandler(Serial);
+    // Setup console logging on Serial3 (SERCOM4)
+    Serial3.begin(115200);
+    static_cast<Os::Arduino::StreamConsoleHandle*>(Os::Console::getSingleton().getHandle())->setStreamHandler(Serial3);
 
     // Object for communicating state to the reference topology
     SAMD21Demo::TopologyState inputs;
-    inputs.uartNumber = 0;
+    inputs.uartNumber = 1;
     inputs.uartBaud = 115200;
 
     // Setup topology

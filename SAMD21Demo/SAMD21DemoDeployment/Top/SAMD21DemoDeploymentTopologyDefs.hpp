@@ -6,15 +6,7 @@
 #ifndef SAMD21DEMODEPLOYMENT_SAMD21DEMODEPLOYMENTTOPOLOGYDEFS_HPP
 #define SAMD21DEMODEPLOYMENT_SAMD21DEMODEPLOYMENTTOPOLOGYDEFS_HPP
 
-#include "Fw/Types/MallocAllocator.hpp"
-#include <cstring>
-#include "SAMD21Demo/SAMD21DemoDeployment/Top/FppConstantsAc.hpp"
-
-// SubtopologyTopologyDefs includes
-#include "Svc/Subtopologies/ComCcsds/SubtopologyTopologyDefs.hpp"
-// ComCcsds Enum Includes
-#include "Svc/Subtopologies/ComCcsds/Ports_ComPacketQueueEnumAc.hpp"
-#include "Svc/Subtopologies/ComCcsds/Ports_ComBufferQueueEnumAc.hpp"
+#include <Fw/FPrimeBasicTypes.hpp>
 
 /**
  * \brief required ping constants
@@ -34,13 +26,10 @@
  * }
  * }
  * ```
+ *
+ * This deployment has no active components, so nothing is pinged.
  */
-namespace PingEntries {
-    namespace SAMD21Demo_tlmSend      {enum { WARN = 3, FATAL = 5 };}
-    namespace SAMD21Demo_cmdDisp      {enum { WARN = 3, FATAL = 5 };}
-    namespace SAMD21Demo_eventLogger  {enum { WARN = 3, FATAL = 5 };}
-    namespace SAMD21Demo_rateGroup1   {enum { WARN = 3, FATAL = 5 };}
-}  // namespace PingEntries
+namespace PingEntries {}  // namespace PingEntries
 
 // Definitions are placed within the deployment namespace
 namespace SAMD21Demo {
@@ -55,11 +44,9 @@ namespace SAMD21Demo {
      */
     struct TopologyState {
         FwIndexType uartNumber;
-        PlatformIntType uartBaud;
+        U32 uartBaud;
     };
 
 }  // namespace SAMD21Demo
-
-
 
 #endif
