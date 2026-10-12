@@ -5,6 +5,7 @@
 // ======================================================================
 // Provides access to autocoded functions
 #include <SAMD21Demo/SAMD21DemoDeployment/Top/SAMD21DemoDeploymentTopologyAc.hpp>
+#include <SAMD21Demo/SAMD21DemoDeployment/Top/SAMD21DemoDeployment_SAMD21DemoPacketsTlmPacketsAc.hpp>
 #include <config/FppConstantsAc.hpp>
 #include <Fw/Logger/Logger.hpp>
 
@@ -14,12 +15,16 @@
 // Allows easy reference to objects in FPP/autocoder required namespaces
 using namespace SAMD21Demo;
 
-// The reference topology divides the incoming clock signal (1Hz) into sub-signals: 1/100Hz, 1/200Hz, and 1/1000Hz
-Svc::RateGroupDriver::DividerSet rateGroupDivisors{{{100, 0}, {200, 0}, {1000, 0}}};
+// Base tick of the system, polled from loop() (USE_BASIC_TIMER)
+static constexpr U32 BASE_TICK_MS = 100;
+
+// The rate group driver divides the 10Hz base tick into sub-signals: 10Hz and 1Hz
+Svc::RateGroupDriver::DividerSet rateGroupDivisors{{{1, 0}, {10, 0}}};
 
 // Rate groups may supply a context token to each of the attached children whose purpose is set by the project. The
 // reference topology sets each token to zero as these contexts are unused in this project.
-Svc::PassiveRateGroup::ContextArray rateGroup1Context(0);
+Svc::PassiveRateGroup::ContextArray rateGroup10HzContext(0);
+Svc::PassiveRateGroup::ContextArray rateGroup1HzContext(0);
 
 /**
  * \brief configure/setup components in project-specific way
@@ -33,7 +38,12 @@ void configureTopology() {
     rateGroupDriver.configure(rateGroupDivisors);
 
     // Rate groups require context arrays.
-    rateGroup1.configure(rateGroup1Context);
+    rateGroup10Hz.configure(rateGroup10HzContext);
+    rateGroup1Hz.configure(rateGroup1HzContext);
+
+    tlmSend.setPacketList(SAMD21DemoDeployment_SAMD21DemoPacketsTlmPackets::packetList);
+
+    lifeLed.configure(Arduino::DEF_LED_BUILTIN);
 }
 
 // Public functions for use in main program are namespaced with deployment namespace SAMD21Demo
@@ -51,15 +61,17 @@ void setupTopology(const TopologyState& state) {
     configureTopology();
     // Autocoded command registration. Function provided by autocoder.
     regCommands();
-    // Autocoded parameter loading. Function provided by autocoder.
-    // DISABLED FOR ARDUINO BOARDS. Loading parameters are not supported because there is typically no file system.
-    // loadParameters();
+    // Autocoded parameter loading. Function provided by autocoder. Parameters have no storage yet, so these are
+    // the defaults (prmDb).
+    loadParameters();
     // Autocoded task kick-off (active components). Function provided by autocoder.
     startTasks(state);
 
-    comDriver.configure(&Serial);
+    // Space Packet link on Serial1 (SERCOM0). Serial (SERCOM5) is used for console output.
+    Serial1.begin(state.uartBaud);
+    comDriver.configure(&Serial1);
     
-    rateDriver.configure(1);
+    rateDriver.configure(BASE_TICK_MS);
     rateDriver.start();
 }
 
